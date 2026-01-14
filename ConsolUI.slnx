@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="ConsolUI/ConsolUI.vcxproj" Id="47c5bef8-abdb-4eec-8ca6-f5a9843de2be" />
+</Solution>
