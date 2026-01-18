@@ -447,8 +447,8 @@ void Window::handle_Input(char key, Catalog& catalog) {
 int main() {
     Catalog catalog;
 
-    auto main_Window = make_unique<Window>("Main Window");
-    auto start_Window = make_unique<Window>("Start Window");
+    auto main_Window    = make_unique<Window>("Main Window");
+    auto start_Window   = make_unique<Window>("Start Window");
     auto options_Window = make_unique<Window>("Options Window");
 
     // ===== MAIN PAGE =====
@@ -457,13 +457,13 @@ int main() {
 
     auto menu = make_unique<Menu>(Position{ 0,4 });
 
-    auto l_start = make_unique<Label>("Start", Position{ 0,0 });
-    auto l_options = make_unique<Label>("Options", Position{ 0,3 });
-    auto l_exit = make_unique<Label>("Exit", Position{ 0,6 });
+    auto l_start    = make_unique<Label>("Start", Position{ 0,0 });
+    auto l_options  = make_unique<Label>("Options", Position{ 0,3 });
+    auto l_exit     = make_unique<Label>("Exit", Position{ 0,6 });
 
-    menu->addItem(l_start.get(), [&]() { catalog.push(move(start_Window)); });
-    menu->addItem(l_options.get(), [&]() { catalog.push(move(options_Window)); });
-    menu->addItem(l_exit.get(), [&]() { exit(0); });
+    menu->addItem(l_start.get(),    [&]() { catalog.push(move(start_Window)); });
+    menu->addItem(l_options.get(),  [&]() { catalog.push(move(options_Window)); });
+    menu->addItem(l_exit.get(),     [&]() { exit(0); });
     Menu* menu_ptr = menu.get();
 
     main_Window->root.addChild(move(title));
