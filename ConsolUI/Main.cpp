@@ -238,10 +238,10 @@ public:
             if (key == 8) {
                 if (!word.empty()) {
                     word.pop_back();
-                    cout << " \b";
+                    cout << "\b \b";
                 }
             }
-            else if (key.has_value() && word.length() <= static_cast<size_t>(size.width) - 2) {
+            else if (key.has_value() && word.length() < static_cast<size_t>(size.width) - 2) {
                 word.push_back(key.value());
                 cout << key.value();
             }
@@ -250,7 +250,7 @@ public:
 private:
     optional<char> verify_character() {
         char ch = db.noacc(_getch());
-        if ((ch >= 'A' && ch <= 'Z') || ch >= 'a' && ch <= 'z' || ch == 8) return ch;
+        if ((ch >= 'A' && ch <= 'Z') || ch >= 'a' && ch <= 'z' || ch == 8 || ch == 13 ) return ch;
         else return nullopt;
     }
 
@@ -355,9 +355,10 @@ public:
 
     void handle_Input(char key, Catalog& catalog);
 
-    void open_Window() { root.render(); }
-
-
+    void open_Window() { 
+		focus = first_Focus();
+        root.render(); 
+    }
 
 private:
     Component* first_Focus() const {
@@ -375,7 +376,7 @@ private:
         else
             return nullptr;
     }
-    Component* focus = first_Focus();
+    Component* focus = nullptr;
     stack<Component*> focus_Stack;
 
 };
@@ -395,6 +396,7 @@ public:
     }
 
     void push(unique_ptr<Window> window) {
+        if (window == nullptr) return;
         if (!windowStack.empty())
             windowStack.top()->open = false;
 
