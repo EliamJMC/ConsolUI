@@ -10,6 +10,7 @@
 #include <optional>
 #include <algorithm>
 #include <utility>
+#include <variant>
 
 #include "db.h"
 #include "cvm 25.h"
@@ -342,6 +343,7 @@ private:
 //--------------------//
 
 class Window {
+    using Interactive = variant<Menu*, TextBox*, monostate>;
 protected:
     string name;
 public:
@@ -361,7 +363,7 @@ public:
     }
 
 private:
-    Component* first_Focus() const {
+    Interactive first_Focus() const {
         if (auto conteiner = const_cast<Conteiner&>(root).findFirstByType<Conteiner>()) {
             for (auto& child : conteiner->getChildren())
                 if (auto menu = dynamic_cast<Menu*>(child.get()))
@@ -373,10 +375,8 @@ private:
             return menu;
         else if (auto textBox = const_cast<Conteiner&>(root).findFirstByType<TextBox>())
             return textBox;
-        else
-            return nullptr;
     }
-    Component* focus = nullptr;
+    Interactive focus;
     stack<Component*> focus_Stack;
 
 };
@@ -438,7 +438,10 @@ void Window::handle_Input(char key, Catalog& catalog) {
         return;
     }
 
-    if (focus) focus->handle_Input(key);
+    visit([&](auto* xComponent) {
+        if (xComponent)
+            xComponent->handle_Input(key);
+		}, focus);
 }
 
 
