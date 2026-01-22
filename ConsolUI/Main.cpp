@@ -16,7 +16,7 @@
 #include "cvm 25.h"
 
 using namespace std;
-using Action = function<void()>;
+using Behaviour = function<void()>;
 
 /*Position X , Y*/
 struct Position { int x, y; };
@@ -82,28 +82,6 @@ public:
         children.push_back(move(child));
     }
 
-    /* Finds all Components of the same class.*/
-    template<typename Type>
-    vector<Type*> findByType() {
-        vector<Type*> filtered;
-        for (const auto& child : children) {
-            if (auto pointer = dynamic_cast<Type*>(child.get()))
-                filtered.push_back(pointer);
-        }
-        return filtered;
-    }
-
-    /* Finds the first Component of a specific class */
-    template<typename Type>
-    Type* findFirstByType() {
-        if (children.empty()) return nullptr;
-        for (const auto& child : children) {
-            if (auto pointer = dynamic_cast<Type*>(child.get()))
-                return pointer;
-        }
-        return nullptr;
-    }
-
     /* Renders every child component on screen.*/
     virtual void render() override {
         for (const auto& child : children)
@@ -113,6 +91,38 @@ public:
     vector<unique_ptr<Component>>& getChildren() {
         return children;
     }
+
+    /* Finds all Components of the same class.*/
+    template<typename Type>
+    vector<Type*> findByType() {
+        vector<Type*> filtered;
+        for (const auto& child : children) {
+            if (auto ptr = dynamic_cast<Type*>(child.get()))
+                filtered.push_back(ptr);
+        }
+        return filtered;
+    }
+
+    /* Finds the first Component of a specific class */
+    template<typename Type>
+    Type* findFirstByType() {
+        if (children.empty()) return nullptr;
+        for (const auto& child : children) {
+            if (auto ptr = dynamic_cast<Type*>(child.get()))
+                return ptr;
+        }
+        return nullptr;
+    }
+
+	template<typename Type>
+    vector<unique_ptr<Type>> temporery_Acces_Children() {
+		return move(static_cast<vector<unique_ptr<Type>>>(children));
+    }
+	template<typename Type>
+    void lock_Acces_Children(vector<unique_ptr<Type>> Children) {
+		children = move(Children);
+    }
+
 private:
     vector<unique_ptr<Component>> children;
 };
@@ -200,8 +210,7 @@ private:
     bool centered = false;
     int spacement = 0;
     bool spaced() const {
-        if (spacement > 0) return true;
-        return false;
+        return spacement > 0 ? true : false;
     }
 };
 
@@ -211,7 +220,7 @@ private:
 
 class TextBox : public Component {
 public:
-    TextBox(Position p = { 0,0 }, Size s = { 3,7 }, Action act = nullptr)
+    TextBox(Position p = { 0,0 }, Size s = { 3,7 }, Behaviour act = nullptr)
         : Component(p, s), action(act) {
     }
 
@@ -255,7 +264,7 @@ private:
         else return nullopt;
     }
 
-    Action action;
+    Behaviour action;
     string word;
 };
 
@@ -263,17 +272,11 @@ private:
 //-- CLASS : MENU --//
 //------------------//
 
-class Menu : public Component {
+class Menu : public Conteiner {
 public:
 
     Menu(Position p = { 0,0 }, Size s = { 30,120 })
-        : Component(p, s) {
-    }
-
-    /* Renders every child (Label) component on screen.*/
-    virtual void render() override {
-        for (auto& item : items)
-            item.label->render();
+        : Conteiner(p, s) {
     }
 
     /*
@@ -281,11 +284,14 @@ public:
     * @param key The letter that set the direction.
     */
     void switch_selection(char key) {
-        if (items.empty()) return;
+		vector<unique_ptr<Label>> children = temporery_Acces_Children<Label>();
+
+        if (children_map.empty()) return;
 
         if (key == 13) {
-            if (items[selectedIndex].next)
-                items[selectedIndex].next();
+            auto child = children[selected_Index].get();
+            if (children_map.at(child) != nullptr)
+                children_map.at(child);
             return;
         }
 
@@ -297,29 +303,37 @@ public:
         if (dir == 0) return;
 
         size_t newIndex = std::clamp(
-            static_cast<int>(selectedIndex) + dir,
+            static_cast<int>(selected_Index) + dir,
             0,
-            static_cast<int>(items.size() - 1)
+            static_cast<int>(children_map.size() - 1)
         );
 
-        if (newIndex == selectedIndex) return;
+        if (newIndex == selected_Index) return;
 
-        items[selectedIndex].label->setColor(Color::wht);
-        items[selectedIndex].label->render();
+        children[selected_Index]->setColor(Color::wht);
+        children[selected_Index]->render();
 
-        selectedIndex = newIndex;
+        selected_Index = newIndex;
 
-        items[selectedIndex].label->setColor(Color::gry);
-        items[selectedIndex].label->render();
+        children[selected_Index]->setColor(Color::gry);
+        children[selected_Index]->render();
+
+		lock_Acces_Children(move(children));
     }
 
     /* Adds a Label to the selector with two actions. */
-    void addItem(Label* label, Action next = nullptr, Action back = nullptr) {
-        items.emplace_back(label, next, back ? optional<Action>(back) : nullopt);
-        label->setParent(this);
+    void addItem(unique_ptr<Label> label, Behaviour next = nullptr) {
+        vector<unique_ptr<Label>> children = temporery_Acces_Children<Label>();
+        
+		children_map[label.get()] = next;
 
-        if (items.size() == 1)
-            items[0].label->setColor(Color::gry);
+        label->setParent(this);
+        addChild(move(label));
+
+        if (children_map.size() == 1)
+            children[0]->setColor(Color::gry);
+
+		lock_Acces_Children(move(children));
     }
 
     virtual bool handle_Input(char key) override {
@@ -328,14 +342,8 @@ public:
     }
 
 private:
-    struct Item {
-        Label* label;
-        Action next;
-        optional<Action> back;
-    };
-
-    vector<Item> items;
-    size_t selectedIndex = 0;
+	map<Label*, Behaviour> children_map;
+    size_t selected_Index = 0;
 };
 
 //--------------------//
@@ -466,9 +474,9 @@ int main() {
     auto l_options  = make_unique<Label>("Options", Position{ 0,3 });
     auto l_exit     = make_unique<Label>("Exit", Position{ 0,6 });
 
-    menu->addItem(l_start.get(),    [&]() { catalog.push(move(start_Window)); });
-    menu->addItem(l_options.get(),  [&]() { catalog.push(move(options_Window)); });
-    menu->addItem(l_exit.get(),     [&]() { exit(0); });
+    menu->addItem(move(l_start),    [&]() { catalog.push(move(start_Window)); });
+    menu->addItem(move(l_options),  [&]() { catalog.push(move(options_Window)); });
+    menu->addItem(move(l_exit),     [&]() { exit(0); });
     Menu* menu_ptr = menu.get();
 
     main_Window->root.addChild(move(title));
