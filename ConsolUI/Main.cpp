@@ -11,8 +11,6 @@
 #include <utility>
 #include <initializer_list>
 #include <variant>
-#include <queue>
-
 #include "db.h"
 #include "cvm 25.h"
 
@@ -637,12 +635,12 @@ namespace ConsolUI {
             struct menuNavigationRequest { char key; };
             struct focusChangingRequest { string from_Component; string to_Component; };
             struct renderRequest { 
-                enum class Type { start, refresh, update, null }; 
+                enum class Type { render, update, null }; 
                 Type type = Type::null;
 
                 struct refreshData { string mss; };
                 struct updateData { Reference component; };
-                variant<refreshData, updateData> renderData;
+                variant<refreshData, updateData> daata;
             };
 
             struct componentModificationRequest { 
@@ -775,7 +773,7 @@ namespace ConsolUI {
 				events.push(Event{ 
                     Event::Type::RenderRequest, 
                     Event::renderRequest{ 
-                        Event::renderRequest::Type::refresh, 
+                        Event::renderRequest::Type::render, 
                         Event::renderRequest::refreshData { "Refresh -> " + current->name }}
                     }
                 );
@@ -871,7 +869,7 @@ namespace ConsolUI {
         public:
 			Systems::Window* current;
 			bool clearScreen = true;
-            void startRender(EventManager& events) {
+            void render(EventManager& events) {
 				Event event;
 				if (!events.poll(event))
                     events.pushWarning(Event{
@@ -894,6 +892,25 @@ namespace ConsolUI {
                 renderEmpty(current->root, events);
 				clearScreen = true;
 			}
+
+            void update(EventManager& events) {
+                Event event;
+                if (!events.poll(event)) {
+                    events.pushWarning(Event{
+                        Event::Type::Error,
+                        Event::error{ 001, "Failed polling event"}
+                        }
+                    );
+                }
+                if (event.type != Event::Type::RenderRequest) {
+                    events.pushWarning(Event{
+                        Event::Type::Error,
+                        Event::error{ 201, "Event is not a Render Request"}
+                        }
+                    );
+                }
+            }
+
 
         private:
             void renderEmpty(VisualElements::Empty& _empty, EventManager& events) {
