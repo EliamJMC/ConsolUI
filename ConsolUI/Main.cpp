@@ -26,7 +26,6 @@ void set_Color(Color color, int number);
 
 namespace ConsolUI {
     namespace VisualElements {
-
         enum class Type {Component, Empty, Label, Field, Menu};
         class Component;
         class Empty;
@@ -35,10 +34,10 @@ namespace ConsolUI {
 		class Menu;
 
         //---------------------------//
-        //-- BASE CLASS : COMPONENT--// ok
+        //-- BASE CLASS : COMPONENT--// 
         //---------------------------//
-        class Component {
-        public:
+
+        struct Component {
             Component(Position p, Size s)
                 : relative_Position(p), size(s) {
                 parent = nullptr;
@@ -58,20 +57,13 @@ namespace ConsolUI {
             }
 
             void setParent(Component* par) { parent = par; }
-
-            virtual bool handleInput(char key) { return false; }
-
-            virtual void render() = 0;
-
-            virtual void debug() {}
         };
 
         //-----------------------//
         //-- CLASS : CONTEINER --// ok
         //-----------------------//
 
-        class Empty : public Component {
-        public:
+        struct Empty : public Component {
             Empty(Position p, Size s)
                 : Component(p, s) {
                 type = Type::Empty;
@@ -79,39 +71,17 @@ namespace ConsolUI {
 
             vector<unique_ptr<Component>> children;
 
-            vector<unique_ptr<Component>>& getChildren() { return children; }
-
-            /*
-            * Sets parent pointer and adds child unique pointer.
-            * @param child Any object that heritates form Component
-            */
             void addChild(unique_ptr<Component>&& child) {
                 child->setParent(this);
                 children.push_back(move(child));
             }
-
-            /* Renders every child component on screen.*/
-            void render() override {
-                for (const auto& child : children)
-                    child->render();
-            }
-
-            void debug() override {
-                Position abs_Pos = absolute_Position();
-                cout << "Empty at (" << abs_Pos.x << "," << abs_Pos.y << ") "
-                    << "Size (" << size.width << "x" << size.height << ")\n"
-                    << "Children:\n";
-                for (const auto& child : children)
-                    child->debug();
-            }
         };
 
         //-------------------//
-        //-- CLASS : LABEL --// ok
+        //-- CLASS : LABEL --// preaty clean
         //-------------------//
 
-        class Label : public Component {
-        public:
+        struct Label : public Component {
             Label(string txt, Position p = { 0,0 }, Size s = { 0,0 })
                 : Component(p, s), text(txt) {
                 type = Type::Label;
@@ -119,6 +89,13 @@ namespace ConsolUI {
             enum class Orientation { Vertical, Horizontal };
             enum class Mode { Centered, Spaced, Colored, Oriented };
             using ModeValue = variant<bool, int, Color, Orientation>;
+
+            string text;
+            bool centered = false;
+            int spacement = 0;
+            bool spaced() const { return spacement > 0 ? true : false; }
+            Orientation orientation = Orientation::Horizontal;
+            Color color = Color::wht;
 
             void assignMode(Mode mode, ModeValue assign) {
                 switch (mode) {
@@ -136,7 +113,6 @@ namespace ConsolUI {
                     break;
                 }
             }
-
             void assignMode(initializer_list<pair<Mode, ModeValue>> list) {
                 for (auto& [mode, value] : list) {
                     switch (mode) {
@@ -155,166 +131,42 @@ namespace ConsolUI {
                     }
                 }
             }
-
             void assignMode(Orientation _orient = Orientation::Horizontal, Color _color = Color::wht, bool _centered = true, int _space = 1) {
                 orientation = _orient;
                 color = _color;
                 centered = _centered;
                 spacement = _space;
             }
-
-            void debug() override {
-                Position abs_Pos = absolute_Position();
-                set_Color(Color::pur, "Label "); cout << "at ("; setcolor(Color::grn); cout << abs_Pos.x << "," << abs_Pos.y;    setcolor(Color::wht); cout << ") "
-                    << "Size (";      setcolor(Color::grn); cout << size.width << "x" << size.height; setcolor(Color::wht); cout << ") "
-                    << "Text: \"";    setcolor(Color::grn); cout << text;                             setcolor(Color::wht); cout << "\"\n"
-                    << "Modes:\n"
-                    << "Orientation: "; setcolor(Color::grn); cout << (orientation == Orientation::Horizontal ? "Horizontal" : "Vertical") << "\n"
-                    << "Color: ";
-                setcolor(color);
-                switch (color) {
-                case Color::blk:  cout << "Black";  break;
-                case Color::blu:  cout << "Blue";   break;
-                case Color::grn:  cout << "Green";  break;
-                case Color::aqua: cout << "Aqua";   break;
-                case Color::red:  cout << "Red";    break;
-                case Color::pur:  cout << "Purple"; break;
-                case Color::yel:  cout << "Yellow"; break;
-                case Color::wht:  cout << "White";  break;
-                case Color::gry:  cout << "Gray";   break;
-                default: cout << "Unknown"; break;
-                }
-                setcolor(Color::wht);
-                cout << "\n";
-                if (centered) cout << "Centered: ";  set_Color(Color::blu, "True\n");
-                if (spaced()) cout << "Spaced: ";    set_Color(Color::blu, "True\n");
-                cout << "Spacement: "; set_Color(Color::blu, spacement); cout << "\n";
-
-            }
-            string text;
-            Orientation orientation = Orientation::Horizontal;
-            Color color = Color::wht;
-
-            bool centered = false;
-            bool spaced() const { return spacement > 0 ? true : false; }
-            int spacement = 0;
-        private:
         };
 
         //---------------------// 
-        //-- CLASS : TEXTBOX --// a lot bugs
+        //-- CLASS : TEXTBOX --// lot of work to add
         //---------------------//
 
-        class Field : public Component {
-        public:
+        struct Field : public Component {
             Field(Position p = { 0,0 }, Size s = { 3,7 })
                 : Component(p, s) {
                 type = Type::Field;
             }
-
-            void render() override {
-                for (int y = 0; y < size.height; ++y) {
-                    for (int x = 0; x < size.width; ++x) {
-                        gotoxy(static_cast<size_t>(absolute_Position().x + x), static_cast<size_t>(absolute_Position().y + y));
-                        if (y == 0 || y == size.height - 1)
-                            cout << '-';
-                        else if (x == 0 || x == size.width - 1)
-                            cout << '|';
-                    }
-                }
-            }
-
-            bool handleInput(char key) override {
-                handle_Text_Input(static_cast<optional<char>>(key));
-                return true;
-            }
-
-            void handle_Text_Input(optional<char> key) {
-                gotoxy(static_cast<size_t>(absolute_Position().x + 1), static_cast<size_t>(absolute_Position().y + size.height / 2));
-                bool handling = false;
-                while (handling) {
-                    key = verify_character();
-					if (key == 27 || key == 13) {
-                        handling = false;
-                    }
-                    else if (key == 8) {
-                        if (!word.empty()) {
-                            word.pop_back();
-                            cout << "\b \b";
-                        }
-                    }
-                    else if (key.has_value() && word.length() < static_cast<size_t>(size.width) - 2) {
-                        word.push_back(key.value());
-                        cout << key.value();
-                    }
-                }
-
-
-            }
-
-            virtual void debug() override {
-                Position abs_Pos = absolute_Position();
-                cout << "Field at (" << abs_Pos.x << "," << abs_Pos.y << ") "
-                    << "Size (" << size.width << "x" << size.height << ") "
-                    << "Current Text: \"" << word << "\"\n";
-            }
-
-        private:
-            optional<char> verify_character() {
-                char ch = db.noacc(_getch());
-                if ((ch >= 'A' && ch <= 'Z') || ch >= 'a' && ch <= 'z' || ch == 8 || ch == 13 || ch == 27) return ch;
-                else return nullopt;
-            }
-
             string word;
         };
 
         //------------------//
-        //-- CLASS : MENU --// ok
+        //-- CLASS : MENU --//
         //------------------//
 
-        class Menu : public Component {
-        public:
+        struct Menu : public Component {
             Menu(Position p = { 0,0 }, Size s = { 30,120 })
                 : Component(p, s) {
 				type = Type::Menu;
             }
             using Behaviour = function<void()>;
+            struct Interactable { unique_ptr<Label> label; Behaviour behaviour; };
 
-            void render() override {
-                for (auto& child : children)
-                    child.label->render();
-            }
+            vector<Interactable> children;
+            size_t selected_Index = 0;
 
-            void switchSelection(char key) {
-                if (children.empty()) return;
-
-                if (key == 13) {
-                    if (children[selected_Index].behaviour) children[selected_Index].behaviour();
-                    return;
-                }
-
-                int dir = (key == 'w') ? -1 : (key == 's') ? 1 : 0;
-                if (dir == 0) return;
-
-                size_t newIndex = clamp(
-                    static_cast<int>(selected_Index) + dir,
-                    0,
-                    static_cast<int>(children.size() - 1)
-                );
-                if (newIndex == selected_Index) return;
-
-                updateSelectionColor(Color::wht);
-                selected_Index = newIndex;
-                updateSelectionColor(Color::gry);
-            }
-
-            bool handleInput(char key) override {
-                switchSelection(key);
-                return true;
-            }
-
-            void addItem(unique_ptr<Label> label, Behaviour next = nullptr) {
+            void addInteractable(unique_ptr<Label> label, Behaviour next = nullptr) {
                 if (label == nullptr) return;
                 label->setParent(this);
                 children.emplace_back(Interactable{ move(label), next });
@@ -322,39 +174,9 @@ namespace ConsolUI {
                 if (children.size() == 1)
                     children[0].label.get()->assignMode(Label::Mode::Colored, Color::gry);
             }
-
-            void debug() override {
-                auto current_child = (children[selected_Index].label.get());
-
-                Position abs_Pos = absolute_Position();
-                cout << "Menu at (" << abs_Pos.x << "," << abs_Pos.y << ") "
-                    << "Size (" << size.width << "x" << size.height << ") "
-                    << "Selected Index: " << selected_Index << "\n"
-                    << "Courrent selection:\n";
-                current_child->debug();
-                cout << "Menu Labels:\n";
-                int index = 0;
-                for (const auto& x_child : children)
-                    index++,
-                    cout << "Label " << index << ":\n",
-                    x_child.label->debug();
-            }
-            void updateSelectionColor(Color color) {
-                children[selected_Index].label->assignMode(Label::Mode::Colored, color);
-                children[selected_Index].label->render();
-            }
-
-            struct Interactable {
-                unique_ptr<Label> label;
-                Behaviour behaviour;
-            };
-
-            vector<Interactable> children;
-            size_t selected_Index = 0;
-
         };
-
     };
+
     namespace Systems {
         template<typename _Ty>
         class Hierarchy;
@@ -463,11 +285,10 @@ namespace ConsolUI {
             string name;
             using Interactable = variant <
                 VisualElements::Menu*,
-                VisualElements::Field*,
-                monostate
+                VisualElements::Field*
             >;
             Window(string _name)
-                : root({ 0,0 }, { 30,120 }), name(_name), focus(monostate{}) {
+                : root({ 0,0 }, { 30,120 }), name(_name), focus() {
             }
 
 
@@ -476,48 +297,8 @@ namespace ConsolUI {
 
             void handleInput(char key, System& system);
 
-            void open() {
-                visible = true;
-                root.render();
-                findInteractableElements();
-            }
-
-            virtual void debug() {
-                cout << "Window: " << name << "\n"
-                    << "State: " << (visible ? "visible" : "hiden") << "\n";
-
-				
-                if (holds_alternative<VisualElements::Menu*>(focus)) { 
-                    auto* m = std::get<VisualElements::Menu*>(focus); 
-                    cout << "Focus: Menu -> " << "\n"; 
-                }
-                else if (holds_alternative<VisualElements::Field*>(focus)) { 
-                    auto* f = std::get<VisualElements::Field*>(focus); 
-                    cout << "Focus: Field -> " << "\n"; 
-                }
-                else { set_Color(Color::aqua, "no focus found\n"); }
-
-                root.debug();
-            }
-
             Interactable focus;
-            vector<Interactable> interactableElements;
-
-        private:
-            void findInteractableElements() {
-                interactableElements.clear(); for (auto& child : root.children) {
-                    if (child->handleInput(0)) { 
-                        if (auto* m = dynamic_cast<VisualElements::Menu*>(child.get())) 
-                            interactableElements.push_back(m); 
-                        else if (auto* f = dynamic_cast<VisualElements::Field*>(child.get())) 
-                            interactableElements.push_back(f); 
-                    } 
-                } 
-                if (!interactableElements.empty()) 
-                    focus = interactableElements[0]; 
-                else 
-                    focus = monostate{}; 
-            }
+            vector<Interactable> interactablElements;
         };
 
         //--------------------//
@@ -530,64 +311,7 @@ namespace ConsolUI {
 
             Window* current = nullptr;
 			bool running = false;
-
-            void run() {
-                current = winHierarchy.actual.get();
-                refreshSystem();
-				running = true;
-                while (running) {
-                    if (winHierarchy.actual == nullptr)
-						running = false;
-                    char key = _getch();
-                    current->handleInput(key, *this);
-                }
-            }
-
-            void nextWin(size_t index) {
-                Hierarchy<Window>::Path* path = winHierarchy.findPath(*current);
-                if (path == nullptr) return;
-                if (index >= path->nexts.size()) return;
-                current->visible = false;
-                current = path->nexts[index].actual.get();
-                current->visible = true;
-                refreshSystem();
-            }
-
-            void previousWin() {
-                Hierarchy<Window>::Path* path = winHierarchy.findPath(*current);
-                if (path == nullptr) return;
-                current->visible = false;
-                if (path->previous != nullptr) {
-                    current->visible = false;
-                    current = path->previous;
-                    refreshSystem();
-                }
-                else exit(0);
-            }
-
-        private:
-            void refreshSystem() {
-                clrscr();
-                if (current) current->open();
-            }
         };
-
-		// handleInput implementation
-        void Systems::Window::handleInput(char key, System& system) {
-            if (!visible) return;
-            if (key == 27) {
-                system.previousWin();
-                return;
-            }
-
-            visit([&](auto ptr) {
-                using T = decay_t<decltype(ptr)>;
-                if constexpr (!is_same_v<T, monostate>) {
-                    if (ptr && ptr->handleInput(key))
-                        return;
-                }
-            },focus);
-        }
 	};
 
 	//--------------//
@@ -640,7 +364,7 @@ namespace ConsolUI {
 
                 struct refreshData { string mss; };
                 struct updateData { Reference component; };
-                variant<refreshData, updateData> daata;
+                variant<refreshData, updateData> data;
             };
 
             struct componentModificationRequest { 
@@ -699,6 +423,10 @@ namespace ConsolUI {
                 events.pop_front();
                 return true;
             }
+
+            Event getEvent(size_t index) {
+                return events[index];
+            }
         private:
             deque<Event> events;
         };
@@ -729,8 +457,9 @@ namespace ConsolUI {
                         Event::error{ 001, "Failed polling event"}
                         }
                     );
-                return;
-            }
+                    return;
+                }
+
                 if (event.type != Event::Type::WindowsNavigationRequest) {
                     events.pushWarning(Event{
                         Event::Type::Error,
@@ -871,26 +600,40 @@ namespace ConsolUI {
 			bool clearScreen = true;
             void render(EventManager& events) {
 				Event event;
-				if (!events.poll(event))
+                if (!events.poll(event)) {
                     events.pushWarning(Event{
                         Event::Type::Error,
                         Event::error{ 001, "Failed polling event"}
                         }
-					);
+                    );
+                    return;
+                }
                 if (event.type != Event::Type::RenderRequest) {
                     events.pushWarning(Event{
                         Event::Type::Error,
-                        Event::error{ 201, "Event is not a Render Request"}
+                        Event::error{ 200, "Event is not a Render Request"}
                         }
 					);
+                    return;
                 }
+                if (holds_alternative<Event::renderRequest::Type>(event.data)) {
+                    if (Event::renderRequest::Type::render == get<Event::renderRequest>(event.data).type) {
+                        events.pushWarning(Event{
+                            Event::Type::Error,
+                            Event::error{ 201, "Event is not an Rendering Request"}
+                            }
+                        );
+                        return;
+                    }
+                }
+
                 if (clearScreen) {
                     clrscr();
 					clearScreen = false;
                 }
 
                 renderEmpty(current->root, events);
-				clearScreen = true;
+                clearScreen = true;
 			}
 
             void update(EventManager& events) {
@@ -901,16 +644,53 @@ namespace ConsolUI {
                         Event::error{ 001, "Failed polling event"}
                         }
                     );
+                    return;
                 }
                 if (event.type != Event::Type::RenderRequest) {
                     events.pushWarning(Event{
                         Event::Type::Error,
-                        Event::error{ 201, "Event is not a Render Request"}
+                        Event::error{ 200, "Event is not a Render Request"}
                         }
                     );
+                    return;
+                }
+                if (holds_alternative<Event::renderRequest>(event.data)) {
+                    auto data = get<Event::renderRequest>(event.data);
+                    if (Event::renderRequest::Type::update == data.type) {
+                        events.pushWarning(Event{
+                            Event::Type::Error,
+                            Event::error{ 211, "Event is not an Update Request"}
+                            }
+                        );
+                        return;
+                    }
+
+                    if (auto* rr = get_if<Event::renderRequest>(&event.data)) {
+                        if (rr->type == Event::renderRequest::Type::update) {
+                            if (auto* upd = get_if<Event::renderRequest::updateData>(&rr->data)) {
+                                Event::Reference ref = upd->component;
+                                std::visit([&](auto ptr) {
+                                    using T = std::decay_t<decltype(ptr)>;
+
+                                    if constexpr (is_same_v<T, VisualElements::Label*>) {
+                                        renderLabel(ptr, events);
+                                    }
+                                    else if constexpr (is_same_v<T, VisualElements::Field*>) {
+                                        renderField(ptr, events);
+                                    }
+                                    else if constexpr (is_same_v<T, VisualElements::Menu*>) {
+                                        renderMenu(ptr, events);
+                                    }
+                                    else if constexpr (is_same_v<T, VisualElements::Empty>) {
+                                        renderEmpty(ptr, events);
+                                    }
+
+                                }, ref);
+                            }
+                        }
+                    }
                 }
             }
-
 
         private:
             void renderEmpty(VisualElements::Empty& _empty, EventManager& events) {
@@ -1005,12 +785,37 @@ namespace ConsolUI {
         };
 
         class ComponentManager {
-
+            Systems::Window* current;
+            vector<VisualElements::Component*> currentInteractables;
+            
+            void searchInteractables() {
+                for (auto& child : current->root.children) {
+                    if (child->type == VisualElements::Type::Menu || child->type == VisualElements::Type::Field)
+                        currentInteractables.push_back(child.get());
+                }
+            }
         };
 	};
 
     class Controller {
-        public:
+    public:
+        struct BobbleEvent {
+            Managers::Event next;
+            Managers::Event current;
+            Managers::Event previous;
+
+            void push(Managers::Event newEvent) {
+                previous = current;
+                current = next;
+                next = newEvent;
+            }
+        };
+
+        enum state {
+            Rendering,
+            Typing,
+        };
+
         unique_ptr<Managers::EventManager> event_Manager;
         unique_ptr<Managers::InputManager> input_Manager;
         unique_ptr<Managers::NavigationManager> navigation_Manager;
@@ -1019,6 +824,49 @@ namespace ConsolUI {
 
 		unique_ptr<Systems::Hierarchy<Systems::Window>> hierarchy;
 		unique_ptr<Systems::Window> current;
+        
+        BobbleEvent currentBobble = {};
+        bool running;
+
+        void run() {
+            event_Manager->push(Managers::Event{
+                Managers::Event::Type::RunProgram
+                }
+            );
+            currentBobble.push(event_Manager->getEvent(0));
+
+            event_Manager->push(Managers::Event{
+                Managers::Event::Type::RenderRequest,
+                Managers::Event::renderRequest{
+                    Managers::Event::renderRequest::Type::render,
+                    Managers::Event::renderRequest::refreshData{ "First Render" }
+                    }
+                }
+            );
+            currentBobble.push(event_Manager->getEvent(1));
+
+            input_Manager->poll(*event_Manager); 
+
+            currentBobble.push(event_Manager->getEvent(2));
+
+            running = true;
+
+            while (running) {
+
+            }
+        }
+
+        void assignEvent(BobbleEvent bobble) {
+            if (bobble.current.type == Managers::Event::Type::ComponentModificationRequest && 
+                bobble.next.type == Managers::Event::Type::RenderRequest) {
+
+            }
+        }
+
+        void verifyProgamState() {
+
+        }
+
     };
 
     namespace vse = VisualElements;
@@ -1061,9 +909,9 @@ int main() {
     auto l_options  = make_unique<cui::vse::Label>("Options", Position{ 0,3 });
     auto l_exit     = make_unique<cui::vse::Label>("Exit", Position{ 0,6 });
 
-    menu->addItem(move(l_start),    [&]() { _system.nextWin(0); });
-    menu->addItem(move(l_options),  [&]() { _system.nextWin(1); });
-    menu->addItem(move(l_exit),     [&]() { exit(0); });
+    menu->addInteractable(move(l_start),    [&]() {});
+    menu->addInteractable(move(l_options), [&]() {});
+    menu->addInteractable(move(l_exit),     [&]() { exit(0); });
 
     main_Window->root.addChild(move(title));
     main_Window->root.addChild(move(menu));
@@ -1092,5 +940,4 @@ int main() {
         move(main_Window), 
 		move(temp_nexts)
         );
-    _system.run();
 }
